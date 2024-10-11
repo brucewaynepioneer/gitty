@@ -62,6 +62,7 @@ async def upstatus(client: Client, statusfile, message):
 
 
 
+
 PROGRESS_BAR = """
 ╭─── ✪ Progress ✪
 ├ ⚡ [{0}]
@@ -124,12 +125,25 @@ def progress(current, total, message=None, type='default', start_time=None, bar_
 
     # Generate progress bar visualization
     filled_length = int(bar_length * current // total)
-    bar_fill = "●" * filled_length
-    bar_empty = "○" * (bar_length - filled_length)
+    bar_fill = "█" * filled_length
+    bar_empty = "░" * (bar_length - filled_length)
     progress_bar = f"{bar_fill}{bar_empty}"
 
     # Display formatted progress bar with speed, completion, and time
     output = PROGRESS_BAR.format(progress_bar, current, total, f"{mbps_speed:.2f} Mbps", formatted_time)
+
+    # Ensure the directory for the file exists
+    file_id = message.id if message and hasattr(message, 'id') else 'progress'
+    file_path = f'{file_id}{type}status.txt'
+    
+    try:
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        # Write progress, speed, and ETA to the file
+        with open(file_path, "w") as fileup:
+            fileup.write(output)
+    except IOError as e:
+        print(f"Error writing progress to file: {e}", file=sys.stderr)
 
     # Optionally display the progress in the terminal
     if display_in_terminal:
@@ -139,6 +153,7 @@ def progress(current, total, message=None, type='default', start_time=None, bar_
 # Example usage:
 # start_time = time.time()
 # progress(30 * 1024 * 1024, 100 * 1024 * 1024, message=None, type='upload', start_time=start_time, bar_length=30)
+
 
 
 # start command
