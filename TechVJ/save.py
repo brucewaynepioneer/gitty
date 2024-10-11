@@ -61,26 +61,26 @@ async def upstatus(client: Client, statusfile, message):
 
 
 
-def format_speed(size_in_bytes, elapsed_time):
+
+def calculate_mbps(size_in_bytes, elapsed_time):
     """
-    Automatically scale and format the speed based on the size (in bytes) and elapsed time.
+    Convert the size from bytes to megabits per second (Mbps).
+    :param size_in_bytes: Size transferred so far in bytes.
+    :param elapsed_time: Time elapsed in seconds.
+    :return: Speed in Mbps.
     """
     if elapsed_time == 0:
-        return "0 B/s"
-
-    speed = size_in_bytes / elapsed_time
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-        if speed < 1024:
-            return f"{speed:.2f} {unit}/s"
-        speed /= 1024
-
-    return f"{speed:.2f} TB/s"
+        return 0.0  # Prevent division by zero
+    
+    # Convert bytes to megabits (1 byte = 8 bits, 1 Megabit = 1,000,000 bits)
+    size_in_megabits = (size_in_bytes * 8) / 1_000_000
+    return size_in_megabits / elapsed_time
 
 def progress(current, total, message=None, type='default', start_time=None, bar_length=50, display_in_terminal=True):
     """
-    Write progress to a file, display it in the terminal, estimate time remaining, and show progress speed with auto unit scaling.
+    Write progress to a file, display it in the terminal, estimate time remaining, and show download/upload speed in Mbps.
 
-    :param current: The current progress value (in bytes or equivalent).
+    :param current: The current progress value (in bytes).
     :param total: The total value representing 100% progress.
     :param message: The message object with an ID to differentiate between progress files. Defaults to None.
     :param type: A type string to differentiate between progress types. Defaults to 'default'.
@@ -100,8 +100,8 @@ def progress(current, total, message=None, type='default', start_time=None, bar_
     estimated_total_time = elapsed_time * total / current if current > 0 else 0
     time_remaining = estimated_total_time - elapsed_time
     
-    # Automatically scale and format speed
-    speed_str = format_speed(current, elapsed_time)
+    # Calculate speed in Mbps
+    mbps_speed = calculate_mbps(current, elapsed_time)
 
     # Format the remaining time
     minutes, seconds = divmod(time_remaining, 60)
@@ -115,18 +115,19 @@ def progress(current, total, message=None, type='default', start_time=None, bar_
     # Write progress, speed, and ETA to the file
     try:
         with open(f'{file_id}{type}status.txt', "w") as fileup:
-            fileup.write(f"{progress_percentage:.1f}% {progress_bar} | Speed: {speed_str} | ETA: {time_remaining_str}")
+            fileup.write(f"{progress_percentage:.1f}% {progress_bar} | Speed: {mbps_speed:.2f} Mbps | ETA: {time_remaining_str}")
     except IOError as e:
         print(f"Error writing progress to file: {e}", file=sys.stderr)
 
     # Optionally display the progress in the terminal
     if display_in_terminal:
-        sys.stdout.write(f"\r{progress_bar} {progress_percentage:.1f}% | Speed: {speed_str} | ETA: {time_remaining_str}")
+        sys.stdout.write(f"\r{progress_bar} {progress_percentage:.1f}% | Speed: {mbps_speed:.2f} Mbps | ETA: {time_remaining_str}")
         sys.stdout.flush()
 
 # Example usage:
 # start_time = time.time()
 # progress(30 * 1024 * 1024, 100 * 1024 * 1024, message=None, type='upload', start_time=start_time, bar_length=30)
+
 
 # start command
 @Client.on_message(filters.command(["start"]))
