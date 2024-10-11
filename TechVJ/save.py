@@ -62,9 +62,6 @@ async def upstatus(client: Client, statusfile, message):
 
 
 
-import sys
-import time
-
 PROGRESS_BAR = """
 ╭─── ✪ Progress ✪
 ├ ⚡ [{0}]
