@@ -59,6 +59,8 @@ async def upstatus(client: Client, statusfile, message):
 
 
 
+
+
 def format_speed(size_in_bytes, elapsed_time):
     """
     Automatically scale and format the speed based on the size (in bytes) and elapsed time.
@@ -74,18 +76,24 @@ def format_speed(size_in_bytes, elapsed_time):
 
     return f"{speed:.2f} TB/s"
 
-def progress(current, total, message, type, start_time, bar_length=50, display_in_terminal=True):
+def progress(current, total, message=None, type='default', start_time=None, bar_length=50, display_in_terminal=True):
     """
     Write progress to a file, display it in the terminal, estimate time remaining, and show progress speed with auto unit scaling.
 
     :param current: The current progress value (in bytes or equivalent).
     :param total: The total value representing 100% progress.
-    :param message: The message object with an ID to differentiate between progress files.
-    :param type: A type string to differentiate between progress types.
-    :param start_time: The time when the progress started (to estimate time remaining and speed).
+    :param message: The message object with an ID to differentiate between progress files. Defaults to None.
+    :param type: A type string to differentiate between progress types. Defaults to 'default'.
+    :param start_time: The time when the progress started (to estimate time remaining and speed). Defaults to None.
     :param bar_length: Length of the progress bar (default is 50).
     :param display_in_terminal: Whether to display progress in the terminal (default is True).
     """
+    if start_time is None:
+        start_time = time.time()  # Default to current time if not provided
+
+    # Handle None message and default to 'progress' filename
+    file_id = message.id if message and hasattr(message, 'id') else 'progress'
+    
     # Progress percentage calculation
     progress_percentage = current * 100 / total
     elapsed_time = time.time() - start_time
@@ -106,7 +114,7 @@ def progress(current, total, message, type, start_time, bar_length=50, display_i
 
     # Write progress, speed, and ETA to the file
     try:
-        with open(f'{message.id}{type}status.txt', "w") as fileup:
+        with open(f'{file_id}{type}status.txt', "w") as fileup:
             fileup.write(f"{progress_percentage:.1f}% {progress_bar} | Speed: {speed_str} | ETA: {time_remaining_str}")
     except IOError as e:
         print(f"Error writing progress to file: {e}", file=sys.stderr)
@@ -118,8 +126,7 @@ def progress(current, total, message, type, start_time, bar_length=50, display_i
 
 # Example usage:
 # start_time = time.time()
-# progress(30 * 1024 * 1024, 100 * 1024 * 1024, message_object, 'upload', start_time, bar_length=30)
-
+# progress(30 * 1024 * 1024, 100 * 1024 * 1024, message=None, type='upload', start_time=start_time, bar_length=30)
 
 # start command
 @Client.on_message(filters.command(["start"]))
