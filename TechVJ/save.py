@@ -63,6 +63,8 @@ async def upstatus(client: Client, statusfile, message):
 
 
 
+
+
 PROGRESS_BAR = """
 ╭─── ✪ Progress ✪
 ├ ⚡ [{0}]
@@ -81,9 +83,7 @@ def calculate_mbps(size_in_bytes, elapsed_time):
     """
     if elapsed_time == 0 or size_in_bytes == 0:
         return 0.0  # Prevent division by zero or invalid sizes
-    
-    # Convert bytes to megabits (1 byte = 8 bits, 1 Megabit = 1,000,000 bits)
-    size_in_megabits = (size_in_bytes * 8) / 1_000_000
+    size_in_megabits = (size_in_bytes * 8) / 1_000_000  # Convert bytes to megabits
     return size_in_megabits / elapsed_time
 
 def format_time(seconds):
@@ -93,17 +93,41 @@ def format_time(seconds):
     minutes, seconds = divmod(seconds, 60)
     return f"{int(minutes)}m {int(seconds)}s"
 
+async def downstatus(client: Client, statusfile, message):
+    """
+    Monitor download status and update the Telegram message.
+    """
+    while not os.path.exists(statusfile):
+        await asyncio.sleep(3)  # Wait for status file to be created
+
+    while os.path.exists(statusfile):
+        with open(statusfile, "r") as downread:
+            txt = downread.read()
+        try:
+            await client.edit_message_text(message.chat.id, message.id, f"Downloaded: {txt}")
+            await asyncio.sleep(10)
+        except:
+            await asyncio.sleep(5)
+
+async def upstatus(client: Client, statusfile, message):
+    """
+    Monitor upload status and update the Telegram message.
+    """
+    while not os.path.exists(statusfile):
+        await asyncio.sleep(3)
+
+    while os.path.exists(statusfile):
+        with open(statusfile, "r") as upread:
+            txt = upread.read()
+        try:
+            await client.edit_message_text(message.chat.id, message.id, f"Uploaded: {txt}")
+            await asyncio.sleep(10)
+        except:
+            await asyncio.sleep(5)
+
 def progress(current, total, message=None, type='default', start_time=None, bar_length=25, display_in_terminal=True):
     """
     Display a custom progress bar with download/upload speed in Mbps, completed progress, and time.
-    
-    :param current: The current progress value (in bytes).
-    :param total: The total value representing 100% progress.
-    :param message: The message object with an ID to differentiate between progress files. Defaults to None.
-    :param type: A type string to differentiate between progress types. Defaults to 'default'.
-    :param start_time: The time when the progress started (to estimate time remaining and speed). Defaults to None.
-    :param bar_length: Length of the progress bar (default is 25).
-    :param display_in_terminal: Whether to display progress in the terminal (default is True).
     """
     if start_time is None:
         start_time = time.time()  # Default to current time if not provided
@@ -116,17 +140,17 @@ def progress(current, total, message=None, type='default', start_time=None, bar_
     # Calculate progress percentage and elapsed time
     progress_percentage = current * 100 / total
     elapsed_time = time.time() - start_time
-    
+
     # Calculate speed in Mbps
     mbps_speed = calculate_mbps(current, elapsed_time)
-    
+
     # Format elapsed time
     formatted_time = format_time(elapsed_time)
 
     # Generate progress bar visualization
     filled_length = int(bar_length * current // total)
-    bar_fill = "█" * filled_length
-    bar_empty = "░" * (bar_length - filled_length)
+    bar_fill = "●" * filled_length
+    bar_empty = "○" * (bar_length - filled_length)
     progress_bar = f"{bar_fill}{bar_empty}"
 
     # Display formatted progress bar with speed, completion, and time
@@ -135,7 +159,7 @@ def progress(current, total, message=None, type='default', start_time=None, bar_
     # Ensure the directory for the file exists
     file_id = message.id if message and hasattr(message, 'id') else 'progress'
     file_path = f'{file_id}{type}status.txt'
-    
+
     try:
         # Ensure the directory exists
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -150,9 +174,10 @@ def progress(current, total, message=None, type='default', start_time=None, bar_
         sys.stdout.write(f"\r{output}")
         sys.stdout.flush()
 
-# Example usage:
+# Example usage
 # start_time = time.time()
 # progress(30 * 1024 * 1024, 100 * 1024 * 1024, message=None, type='upload', start_time=start_time, bar_length=30)
+
 
 
 
