@@ -62,6 +62,18 @@ async def upstatus(client: Client, statusfile, message):
 
 
 
+import sys
+import time
+
+PROGRESS_BAR = """
+╭─── ✪ Progress ✪
+├ ⚡ [{0}]
+├ 🚀 Speed: {3}/s
+├ 📟 Completed: {1}/{2}
+├ ⏳ Time: {4}
+╰─── `[✪ Team SPY ✪](https://t.me/devggn)`
+"""
+
 def calculate_mbps(size_in_bytes, elapsed_time):
     """
     Convert the size from bytes to megabits per second (Mbps).
@@ -69,59 +81,62 @@ def calculate_mbps(size_in_bytes, elapsed_time):
     :param elapsed_time: Time elapsed in seconds.
     :return: Speed in Mbps.
     """
-    if elapsed_time == 0:
-        return 0.0  # Prevent division by zero
+    if elapsed_time == 0 or size_in_bytes == 0:
+        return 0.0  # Prevent division by zero or invalid sizes
     
     # Convert bytes to megabits (1 byte = 8 bits, 1 Megabit = 1,000,000 bits)
     size_in_megabits = (size_in_bytes * 8) / 1_000_000
     return size_in_megabits / elapsed_time
 
-def progress(current, total, message=None, type='default', start_time=None, bar_length=50, display_in_terminal=True):
+def format_time(seconds):
     """
-    Write progress to a file, display it in the terminal, estimate time remaining, and show download/upload speed in Mbps.
+    Convert time in seconds to a human-readable format of minutes and seconds.
+    """
+    minutes, seconds = divmod(seconds, 60)
+    return f"{int(minutes)}m {int(seconds)}s"
 
+def progress(current, total, message=None, type='default', start_time=None, bar_length=25, display_in_terminal=True):
+    """
+    Display a custom progress bar with download/upload speed in Mbps, completed progress, and time.
+    
     :param current: The current progress value (in bytes).
     :param total: The total value representing 100% progress.
     :param message: The message object with an ID to differentiate between progress files. Defaults to None.
     :param type: A type string to differentiate between progress types. Defaults to 'default'.
     :param start_time: The time when the progress started (to estimate time remaining and speed). Defaults to None.
-    :param bar_length: Length of the progress bar (default is 50).
+    :param bar_length: Length of the progress bar (default is 25).
     :param display_in_terminal: Whether to display progress in the terminal (default is True).
     """
     if start_time is None:
         start_time = time.time()  # Default to current time if not provided
 
-    # Handle None message and default to 'progress' filename
-    file_id = message.id if message and hasattr(message, 'id') else 'progress'
-    
-    # Progress percentage calculation
+    # Check if 'current' and 'total' are valid
+    if current <= 0 or total <= 0:
+        print("Error: File size equals to 0 B", file=sys.stderr)
+        return
+
+    # Calculate progress percentage and elapsed time
     progress_percentage = current * 100 / total
     elapsed_time = time.time() - start_time
-    estimated_total_time = elapsed_time * total / current if current > 0 else 0
-    time_remaining = estimated_total_time - elapsed_time
     
     # Calculate speed in Mbps
     mbps_speed = calculate_mbps(current, elapsed_time)
+    
+    # Format elapsed time
+    formatted_time = format_time(elapsed_time)
 
-    # Format the remaining time
-    minutes, seconds = divmod(time_remaining, 60)
-    time_remaining_str = f"{int(minutes)}m {int(seconds)}s"
+    # Generate progress bar visualization
+    filled_length = int(bar_length * current // total)
+    bar_fill = "●" * filled_length
+    bar_empty = "○" * (bar_length - filled_length)
+    progress_bar = f"{bar_fill}{bar_empty}"
 
-    # Generate progress bar
-    bar_fill = "#" * int(bar_length * current // total)
-    bar_empty = "-" * (bar_length - len(bar_fill))
-    progress_bar = f"[{bar_fill}{bar_empty}]"
-
-    # Write progress, speed, and ETA to the file
-    try:
-        with open(f'{file_id}{type}status.txt', "w") as fileup:
-            fileup.write(f"{progress_percentage:.1f}% {progress_bar} | Speed: {mbps_speed:.2f} Mbps | ETA: {time_remaining_str}")
-    except IOError as e:
-        print(f"Error writing progress to file: {e}", file=sys.stderr)
+    # Display formatted progress bar with speed, completion, and time
+    output = PROGRESS_BAR.format(progress_bar, current, total, f"{mbps_speed:.2f} Mbps", formatted_time)
 
     # Optionally display the progress in the terminal
     if display_in_terminal:
-        sys.stdout.write(f"\r{progress_bar} {progress_percentage:.1f}% | Speed: {mbps_speed:.2f} Mbps | ETA: {time_remaining_str}")
+        sys.stdout.write(f"\r{output}")
         sys.stdout.flush()
 
 # Example usage:
