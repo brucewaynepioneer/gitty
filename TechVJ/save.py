@@ -1,7 +1,8 @@
 # Don't Remove Credit Tg - @VJ_Botz
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
 # Ask Doubt on telegram @KingVJ01
-
+import sys
+import time
 import asyncio 
 import pyrogram
 from pyrogram import Client, filters
@@ -56,10 +57,68 @@ async def upstatus(client: Client, statusfile, message):
             await asyncio.sleep(5)
 
 
-# progress writer
-def progress(current, total, message, type):
-    with open(f'{message.id}{type}status.txt', "w") as fileup:
-        fileup.write(f"{current * 100 / total:.1f}%")
+
+
+def format_speed(size_in_bytes, elapsed_time):
+    """
+    Automatically scale and format the speed based on the size (in bytes) and elapsed time.
+    """
+    if elapsed_time == 0:
+        return "0 B/s"
+
+    speed = size_in_bytes / elapsed_time
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if speed < 1024:
+            return f"{speed:.2f} {unit}/s"
+        speed /= 1024
+
+    return f"{speed:.2f} TB/s"
+
+def progress(current, total, message, type, start_time, bar_length=50, display_in_terminal=True):
+    """
+    Write progress to a file, display it in the terminal, estimate time remaining, and show progress speed with auto unit scaling.
+
+    :param current: The current progress value (in bytes or equivalent).
+    :param total: The total value representing 100% progress.
+    :param message: The message object with an ID to differentiate between progress files.
+    :param type: A type string to differentiate between progress types.
+    :param start_time: The time when the progress started (to estimate time remaining and speed).
+    :param bar_length: Length of the progress bar (default is 50).
+    :param display_in_terminal: Whether to display progress in the terminal (default is True).
+    """
+    # Progress percentage calculation
+    progress_percentage = current * 100 / total
+    elapsed_time = time.time() - start_time
+    estimated_total_time = elapsed_time * total / current if current > 0 else 0
+    time_remaining = estimated_total_time - elapsed_time
+    
+    # Automatically scale and format speed
+    speed_str = format_speed(current, elapsed_time)
+
+    # Format the remaining time
+    minutes, seconds = divmod(time_remaining, 60)
+    time_remaining_str = f"{int(minutes)}m {int(seconds)}s"
+
+    # Generate progress bar
+    bar_fill = "#" * int(bar_length * current // total)
+    bar_empty = "-" * (bar_length - len(bar_fill))
+    progress_bar = f"[{bar_fill}{bar_empty}]"
+
+    # Write progress, speed, and ETA to the file
+    try:
+        with open(f'{message.id}{type}status.txt', "w") as fileup:
+            fileup.write(f"{progress_percentage:.1f}% {progress_bar} | Speed: {speed_str} | ETA: {time_remaining_str}")
+    except IOError as e:
+        print(f"Error writing progress to file: {e}", file=sys.stderr)
+
+    # Optionally display the progress in the terminal
+    if display_in_terminal:
+        sys.stdout.write(f"\r{progress_bar} {progress_percentage:.1f}% | Speed: {speed_str} | ETA: {time_remaining_str}")
+        sys.stdout.flush()
+
+# Example usage:
+# start_time = time.time()
+# progress(30 * 1024 * 1024, 100 * 1024 * 1024, message_object, 'upload', start_time, bar_length=30)
 
 
 # start command
