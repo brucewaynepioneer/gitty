@@ -133,13 +133,35 @@ MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2GB in bytes
 logging.basicConfig(filename='bot_uploads.log', level=logging.INFO, 
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
+def get_message_type(msg: pyrogram.types.Message):
+    """
+    Determine the type of message: Document, Video, Audio, Photo, Text, etc.
+    """
+    if msg.document:
+        return "Document"
+    elif msg.video:
+        return "Video"
+    elif msg.animation:
+        return "Animation"
+    elif msg.sticker:
+        return "Sticker"
+    elif msg.voice:
+        return "Voice"
+    elif msg.audio:
+        return "Audio"
+    elif msg.photo:
+        return "Photo"
+    elif msg.text:
+        return "Text"
+    return None  # Return None if the message type isn't recognized
+
 async def handle_private(client: Client, acc, message: Message, chatid: int, msgid: int):
     try:
         msg: Message = await acc.get_messages(chatid, msgid)
         msg_type = get_message_type(msg)
         chat = message.chat.id
 
-        if "Text" == msg_type:
+        if msg_type == "Text":
             try:
                 await client.send_message(chat, msg.text, entities=msg.entities, reply_to_message_id=message.id)
             except Exception as e:
@@ -160,10 +182,7 @@ async def handle_private(client: Client, acc, message: Message, chatid: int, msg
 
         upsta = asyncio.create_task(upstatus(client, f'{message.id}upstatus.txt', smsg))
 
-        if msg.caption:
-            caption = msg.caption
-        else:
-            caption = None
+        caption = msg.caption if msg.caption else None
 
         # Check if the file size exceeds the 2GB limit
         if os.path.getsize(file) > MAX_FILE_SIZE:
@@ -178,64 +197,6 @@ async def handle_private(client: Client, acc, message: Message, chatid: int, msg
     except Exception as e:
         logging.error(f"Failed to handle private message: {e}")
         await client.send_message(message.chat.id, f"Error handling request: {e}", reply_to_message_id=message.id)
-
-async def upload_file(client, message, file, msg_type, caption):
-    chat = message.chat.id
-    try:
-        if "Document" == msg_type:
-            await client.send_document(chat, file, caption=caption, reply_to_message_id=message.id, progress=progress, progress_args=[message, "up"])
-        elif "Video" == msg_type:
-            await client.send_video(chat, file, caption=caption, reply_to_message_id=message.id, progress=progress, progress_args=[message, "up"])
-        elif "Photo" == msg_type:
-            await client.send_photo(chat, file, caption=caption, reply_to_message_id=message.id)
-        elif "Animation" == msg_type:
-            await client.send_animation(chat, file, reply_to_message_id=message.id)
-        elif "Audio" == msg_type:
-            await client.send_audio(chat, file, caption=caption, reply_to_message_id=message.id, progress=progress, progress_args=[message, "up"])
-        logging.info(f"Successfully uploaded {msg_type} file: {file}")
-    except Exception as e:
-        await client.send_message(chat, f"Error uploading file: {e}", reply_to_message_id=message.id)
-        logging.error(f"Failed to upload {msg_type} file: {e}")
-
-async def split_and_upload(client, message, file_path, msg_type, caption):
-    """
-    Splits a file into parts if its size exceeds 2GB and uploads each part separately.
-    """
-    file_size = os.path.getsize(file_path)
-    part_number = 1
-    chat = message.chat.id
-
-    try:
-        with open(file_path, 'rb') as f:
-            while file_size > 0:
-                part_file_name = f"{file_path}.part{part_number}"
-                with open(part_file_name, 'wb') as part_file:
-                    chunk_size = min(MAX_FILE_SIZE, file_size)
-                    part_file.write(f.read(chunk_size))
-
-                # Upload the part
-                try:
-                    if "Document" == msg_type:
-                        await client.send_document(chat, part_file_name, caption=f"{caption} - Part {part_number}", reply_to_message_id=message.id, progress=progress, progress_args=[message, "up"])
-                    elif "Video" == msg_type:
-                        await client.send_video(chat, part_file_name, caption=f"{caption} - Part {part_number}", reply_to_message_id=message.id, progress=progress, progress_args=[message, "up"])
-                    elif "Audio" == msg_type:
-                        await client.send_audio(chat, part_file_name, caption=f"{caption} - Part {part_number}", reply_to_message_id=message.id, progress=progress, progress_args=[message, "up"])
-                    logging.info(f"Successfully uploaded {msg_type} part {part_number}: {part_file_name}")
-                except Exception as e:
-                    await client.send_message(chat, f"Error uploading part {part_number}: {e}", reply_to_message_id=message.id)
-                    logging.error(f"Failed to upload part {part_number} of {msg_type}: {e}")
-                    return
-
-                # Delete the part after uploading
-                os.remove(part_file_name)
-
-                # Move to the next part
-                file_size -= chunk_size
-                part_number += 1
-    except Exception as e:
-        await client.send_message(chat, f"Error splitting file: {e}", reply_to_message_id=message.id)
-        logging.error(f"Failed to split and upload file: {e}")
 
 # The new /replace command
 @Client.on_message(filters.command("replace") & filters.text)
